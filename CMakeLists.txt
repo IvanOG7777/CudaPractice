@@ -10,23 +10,31 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_ARCHITECTURES 86)
 
 add_executable(dist_v1
-        dist_v1.cu
+        chapter3/dist_v1.cu
 )
 
 add_executable(dist_v2
-        dist_v2.cu
+        chapter3/dist_v2.cu
 )
 
 add_executable(dist_v2_unified
-        dist_v2_unified.cu
+        chapter3/dist_v2_unified.cu
 )
 
 add_executable(changedNumOfElements
-        changedNumOfElements.cu
+        chapter3/changedNumOfElements.cu
 )
 
 add_executable(distArray
-        distArray.cu
+        chapter3/distArray.cu
+)
+
+add_executable(2dKernel
+        chapter4/2dKernel.cu
+)
+
+add_executable(dist_2d
+        chapter4/dist_2d.cu
 )
 
 
