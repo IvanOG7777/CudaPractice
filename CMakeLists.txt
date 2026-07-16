@@ -38,7 +38,18 @@ add_executable(dist_2d
 )
 
 add_executable(dist_2d_color
-        chapter4/dis_2d_color.cu
+        chapter4/Source/dis_2d_color.cu
+        chapter4/Source/glad.c
+)
+
+
+target_include_directories(dist_2d_color PRIVATE
+        ${CMAKE_SOURCE_DIR}/chapter4//Libraries/include
+)
+
+target_link_libraries(dist_2d_color PRIVATE
+        ${CMAKE_SOURCE_DIR}/chapter4/Libraries/lib/glfw3.lib
+        opengl32
 )
 
 
