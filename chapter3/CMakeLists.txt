@@ -21,11 +21,16 @@ add_executable(dist_v2_unified
         dist_v2_unified.cu
 )
 
+add_executable(changedNumOfElements
+        changedNumOfElements.cu
+)
+
 
 set_target_properties(
         dist_v1
         dist_v2
         dist_v2_unified
+        changedNumOfElements
         PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
 )

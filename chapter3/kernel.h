@@ -5,6 +5,7 @@
 #ifndef CUDAPRACTICE_KERNEL_H
 #define CUDAPRACTICE_KERNEL_H
 
+// function definition
 void distanceArray(float *out, float *in, float ref, float length);
 
 #endif //CUDAPRACTICE_KERNEL_H
