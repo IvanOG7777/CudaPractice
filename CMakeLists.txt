@@ -37,6 +37,10 @@ add_executable(dist_2d
         chapter4/dist_2d.cu
 )
 
+add_executable(dist_2d_color
+        chapter4/dis_2d_color.cu
+)
+
 
 set_target_properties(
         dist_v1
