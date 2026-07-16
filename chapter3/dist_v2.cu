@@ -18,7 +18,7 @@ __global__ void distanceKernel(float *d_out, float *d_in, float ref) {
 
     d_out[i] = distance(x, ref);
 
-    printf("i = %2d: dist sfrom %f to %f is %f.\n", i, ref, x, d_out[i]);
+    printf("i = %2d: dist from %f to %f is %f.\n", i, ref, x, d_out[i]);
 }
 
 void distanceArray(float *out, float *in, float ref, int length) {

@@ -25,12 +25,17 @@ add_executable(changedNumOfElements
         changedNumOfElements.cu
 )
 
+add_executable(distArray
+        distArray.cu
+)
+
 
 set_target_properties(
         dist_v1
         dist_v2
         dist_v2_unified
         changedNumOfElements
+        distArray
         PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
 )
