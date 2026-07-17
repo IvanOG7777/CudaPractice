@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.28)
-project(CudaPractice LANGUAGES CXX CUDA)
+project(CudaPractice LANGUAGES C CXX CUDA)
+
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD_REQUIRED ON)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -44,7 +47,7 @@ add_executable(dist_2d_color
 
 
 target_include_directories(dist_2d_color PRIVATE
-        ${CMAKE_SOURCE_DIR}/chapter4//Libraries/include
+        ${CMAKE_SOURCE_DIR}/chapter4/Libraries/include
 )
 
 target_link_libraries(dist_2d_color PRIVATE

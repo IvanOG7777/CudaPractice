@@ -3,6 +3,7 @@
 //
 
 #include <iostream>
+#include <random>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -31,18 +32,42 @@ __global__ void kernel2d(uchar4 *d_out, int width, int height, float2 pos) {
     d_out[i].w = 255;
 }
 
+__global__ void kernelMakePosition(float2 *d_out, int width, int height, float2 origin) {
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+
+    int i = row * width + col;
+
+    const int radius = 5;
+
+    std::random_device rd;
+    std::mt19937 genAngle(rd());
+
+    std::uniform_real_distribution<> angleDist(0.0f, 1.0f);
+
+    auto randAngle = static_cast<float>(angleDist(genAngle));
+
+    float x = radius * std::cosf(randAngle);
+    float y = radius * std::sinf(randAngle);
+
+    d_out[i].x = x;
+    d_out[i].y = y;
+
+    printf("i = %d, d_out[i] = (%.2f, %.2f)\n", i, d_out[i].x, d_out[i].y);
+}
+
 const char *vertexShader = R"GLSL(
     #version 330 core
 
     layout (location = 0) in vec3 aPos;
 
-    uniform vec3 aColor;
+    uniform vec3 uColor;
 
     out vec4 vertexColor;
 
      void main () {
         gl_position vec4(aPos, 1.0);
-        vertexColor = vec4(aColor, 1.0);
+        vertexColor = vec4(uColor, 1.0);
      }
 )GLSL";
 
@@ -97,50 +122,82 @@ int main() {
     auto bx = (W + blockSize.x - 1) / blockSize.x;
     auto by = (H + blockSize.y - 1) / blockSize.y;
 
-    std::cout << "BX: " << bx << std::endl;
-    std::cout << "BY: " << by << std::endl;
+    dim3 gridSize(bx,by);
+
+    float2 *host_out2 = static_cast<float2 *>(malloc(H * W * sizeof(float2)));
+    float2 *device_out2 = nullptr;
+    cudaMalloc(&device_out2, H * W * sizeof(float2));
+
+    kernelMakePosition<<<gridSize, blockSize>>>(device_out2, W, H, {0.0f, 0.0f});
+
+    cudaDeviceSynchronize();
+
+    cudaMemcpy(host_out2, device_out2, H*W*sizeof(float2), cudaMemcpyDeviceToHost);
 
     return 0;
 
 
-    GLuint VAO = 0, VBO = 0;
-
-    glBindVertexArray(VAO);
-    glBindBuffer(1, VBO);
-
-    auto vs = glCreateShader(GL_VERTEX_SHADER);
-    auto fs = glCreateShader(GL_FRAGMENT_SHADER);
-
-    glShaderSource(vs, 1, &vertexShader, nullptr);
-    glCompileShader(vs);
-
-    glShaderSource(fs, 1, &fragmentShader, nullptr);
-    glCompileShader(fs);
-
-    auto program = glCreateProgram();
-    glAttachShader(program, vs);
-    glAttachShader(program, fs);
-    glLinkProgram(program);
-
-    glDeleteShader(vs);
-    glDeleteShader(fs);
-
-    if (!gladLoadGLLoader(
-        reinterpret_cast<GLADloadproc>(glfwGetProcAddress))) {
-        std::cerr << "Failed to initialize GLAD\n";
-        glfwTerminate();
-        return -1;
-    }
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    while (!glfwWindowShouldClose(window)) {
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        // kernel2d<<<>>>(device_out, W, H, {0.0f, 0.0f});
-
-        glfwSwapBuffers(window);
-        glfwPollEvents();
-    }
-
-    glfwTerminate();
+    // GLuint VAO = 0, PBO = 0;
+    //
+    // auto vs = glCreateShader(GL_VERTEX_SHADER);
+    // auto fs = glCreateShader(GL_FRAGMENT_SHADER);
+    //
+    // glShaderSource(vs, 1, &vertexShader, nullptr);
+    // glCompileShader(vs);
+    //
+    // glShaderSource(fs, 1, &fragmentShader, nullptr);
+    // glCompileShader(fs);
+    //
+    // auto program = glCreateProgram();
+    // glAttachShader(program, vs);
+    // glAttachShader(program, fs);
+    // glLinkProgram(program);
+    //
+    // glDeleteShader(vs);
+    // glDeleteShader(fs);
+    //
+    // GLuint uColorLoc = glGetUniformLocation(program, "uColor");
+    //
+    // if (!gladLoadGLLoader(
+    //     reinterpret_cast<GLADloadproc>(glfwGetProcAddress))) {
+    //     std::cerr << "Failed to initialize GLAD\n";
+    //     glfwTerminate();
+    //     return -1;
+    // }
+    //
+    //
+    // glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    // while (!glfwWindowShouldClose(window)) {
+    //     glClear(GL_COLOR_BUFFER_BIT);
+    //
+    //     kernel2d<<<gridSize, blockSize>>>(device_out, W, H, {0.0f, 0.0f});
+    //
+    //     cudaDeviceSynchronize();
+    //
+    //     cudaMemcpy(host_out, device_out, H*W*sizeof(uchar4), cudaMemcpyDeviceToHost);
+    //
+    //     glGenVertexArrays(1, &VAO);
+    //     glGenBuffers(1, &PBO);
+    //
+    //     glBindVertexArray(VAO);
+    //
+    //     glBindBuffer(GL_PIXEL_PACK_BUFFER, PBO);
+    //
+    //     glBufferData(GL_PIXEL_UNPACK_BUFFER, W*H*sizeof(uchar4), &host_out[0], GL_STREAM_DRAW);
+    //     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(uchar4), (void *)0);
+    //
+    //     glEnableVertexAttribArray(0);
+    //
+    //     glBindBuffer(GL_ARRAY_BUFFER, 0);
+    //     glBindVertexArray(0);
+    //
+    //     glUniform3f(uColorLoc, 1.0f, 1.0f, 1.0f);
+    //
+    //
+    //     glfwSwapBuffers(window);
+    //     glfwPollEvents();
+    // }
+    //
+    // glfwTerminate();
     return 0;
 }
