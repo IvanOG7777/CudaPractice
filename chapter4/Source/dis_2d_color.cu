@@ -36,35 +36,6 @@ __global__ void kernel2d(uchar4 *d_out, int width, int height, float2 pos) {
     d_out[i].w = 255;
 }
 
-__device__ float2 generatePosition(curandState *state, float2 origin, float radius) {
-    float randVal = curand_uniform(state); // get rand number from 0.0 to 1.0
-
-    float angle = randVal * 2.0f * 3.141592653589793f;
-
-    float2 position;
-
-    position.x = origin.x + radius * std::cosf(angle);
-    position.y = origin.y + radius * std::sinf(angle);
-
-    return position;
-}
-
-__global__ void kernelMakePosition(float2 *d_out, int width, int height, float2 origin, unsigned long long seed) {
-    int col = blockIdx.x * blockDim.x + threadIdx.x;
-    int row = blockIdx.y * blockDim.y + threadIdx.y;
-
-    if (col >= width || row >= height) return;
-
-    int i = row * width + col;
-
-    curandState state; // global state
-    curand_init(seed, i, 0, &state); // local state per thread
-
-    d_out[i] = generatePosition(&state, origin, 0.5f);
-
-    printf("i = %d, d_out[i] = (%.2f, %.2f)\n", i, d_out[i].x, d_out[i].y);
-}
-
 const char *vertexShader = R"GLSL(
     #version 330 core
 
@@ -134,20 +105,8 @@ int main() {
     dim3 gridSize(bx,by);
 
 
-    GLuint VAO = 0, VBO = 0;
+    GLuint PBO = 0, tex = 0;
 
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
-    glBufferData(GL_ARRAY_BUFFER, W*H*sizeof(float2), host_out_position, GL_DYNAMIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float2), (void*)0);
-
-    glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
 
     auto vs = glCreateShader(GL_VERTEX_SHADER);
     auto fs = glCreateShader(GL_FRAGMENT_SHADER);
@@ -174,16 +133,6 @@ int main() {
     while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT);
         glUseProgram(program);
-
-        kernelMakePosition<<<gridSize, blockSize>>>(device_out_position, W, H, {0.0f, 0.0f}, 1234ULL);
-        kernel2d<<<gridSize, blockSize>>>(device_out_color, W, H, {0.0f, 0.0f});
-
-        cudaDeviceSynchronize();
-
-        cudaMemcpy(host_out_color, device_out_color, H*W*sizeof(uchar4), cudaMemcpyDeviceToHost);
-        cudaMemcpy(host_out_position, device_out_position, H*W*sizeof(float2), cudaMemcpyDeviceToHost);
-
-        glUniform3f(uColorLoc, )
 
 
 
