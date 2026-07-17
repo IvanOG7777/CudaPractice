@@ -45,7 +45,6 @@ add_executable(dist_2d_color
         chapter4/Source/glad.c
 )
 
-
 target_include_directories(dist_2d_color PRIVATE
         ${CMAKE_SOURCE_DIR}/chapter4/Libraries/include
 )
