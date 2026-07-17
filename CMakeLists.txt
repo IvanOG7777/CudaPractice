@@ -30,11 +30,11 @@ add_executable(distArray
 )
 
 add_executable(2dKernel
-        chapter4/2dKernel.cu
+        chapter4/Source/2dKernel.cu
 )
 
 add_executable(dist_2d
-        chapter4/dist_2d.cu
+        chapter4/Source/dist_2d.cu
 )
 
 add_executable(dist_2d_color
