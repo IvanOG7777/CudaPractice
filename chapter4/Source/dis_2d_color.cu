@@ -129,6 +129,9 @@ int main() {
         1.0f,  1.0f,  1.0f, 0.0f, // top-right
     };
 
+    // texture is read from top left to bottom right, its also in units of 0 <-> 1
+    // 0,1 is top left while 1,0 is bottom
+
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
 
