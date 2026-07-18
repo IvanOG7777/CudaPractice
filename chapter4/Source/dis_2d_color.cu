@@ -14,7 +14,7 @@
 
 
 constexpr int TX = 32, TY = 32;
-constexpr int W = 500, H = 500;
+constexpr int W = 1920, H = 1080;
 
 __device__ unsigned char clip(int n) {
     return n > 255 ? 255 : (n < 0 ? 0 : n); // nested ternery operator return 255, 0 or n
@@ -67,6 +67,17 @@ const char *fragmentShader = R"GLSL(
         FragColor = texture(uTex, vTexCoord);
     }
 )GLSL";
+
+struct SceneState {
+    float2 *cursorPosition;
+};
+
+void cursor_position_callback(GLFWwindow *window, double posX, double posY) {
+    auto *state = static_cast<SceneState *>(glfwGetWindowUserPointer(window));
+
+    state->cursorPosition->x = static_cast<float>(posX);
+    state->cursorPosition->y = static_cast<float>(posY);
+}
 
 int main() {
 
@@ -170,6 +181,12 @@ int main() {
     glUniform1i(glGetUniformLocation(program, "uTex"), 0);
     glUseProgram(0);
 
+    SceneState scene{};
+    float2 cursorPositon = {W / 2.0f, H / 2.0f};
+    scene.cursorPosition = &cursorPositon;
+
+    glfwSetWindowUserPointer(window, &scene);
+    glfwSetCursorPosCallback(window, cursor_position_callback);
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     while (!glfwWindowShouldClose(window)) {
@@ -178,7 +195,7 @@ int main() {
         cudaGraphicsMapResources(1, &cuda_pbo, nullptr); // gives cuda vbo temp access to opengl pbo, allows cuda to write into it
         cudaGraphicsResourceGetMappedPointer((void**)&device_out_color, &numBytes, cuda_pbo); // get device pointer to map opengl pbo memory to it
 
-        kernel2d<<<gridSize, blockSize>>>(device_out_color, W, H, { W/ 2.0f, H/ 2.0f}); // run kernel about window origin
+        kernel2d<<<gridSize, blockSize>>>(device_out_color, W, H, cursorPositon); // run kernel about window origin
 
         cudaGraphicsUnmapResources(1, &cuda_pbo, nullptr); // returns ownership of memory back to opengl
 
@@ -187,6 +204,8 @@ int main() {
         glBindTexture(GL_TEXTURE_2D, tex); // bind tex to be a 2d texture
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, W, H, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0); // unbind pbo
+
+        glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(program); // reuse program
         glActiveTexture(GL_TEXTURE0);
@@ -197,7 +216,6 @@ int main() {
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
-
 
     //clean up unbinding cuda and deleting buffers/programs
     cudaGraphicsUnregisterResource(cuda_pbo);
