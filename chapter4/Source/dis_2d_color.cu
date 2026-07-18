@@ -112,16 +112,17 @@ int main() {
     cudaGraphicsResource *cuda_pbo = nullptr; // allows for cuda to opengl gl communication
     cudaGraphicsGLRegisterBuffer(&cuda_pbo, PBO, cudaGraphicsRegisterFlagsWriteDiscard); // register our local pbo to cuda's pbo, allow cuda to send data as the producer and opengl as the consumer
 
-    glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
+    glGenTextures(1, &tex); // create texture object at &tex
+    glBindTexture(GL_TEXTURE_2D, tex); // bind tex to be a 2d texture
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, W, H, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindTexture(GL_TEXTURE_2D, 0); // unbind tex
 
     float coordinates[] = {
+// screen position   /  texture positon
         -1.0f, -1.0f,  0.0f, 1.0f, // bottom-left
         1.0f, -1.0f,  1.0f, 1.0f, // bottom-right
         -1.0f,  1.0f,  0.0f, 0.0f, // top-left
@@ -131,14 +132,15 @@ int main() {
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
 
+    // bind vao/vbo
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(coordinates), coordinates, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(coordinates), coordinates, GL_STATIC_DRAW); // bind buffer to be of size coordinates, we start reading from positon [0]
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)0); // read first two floats per vertex (4 float in each). no offset, send to aPos
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float))); // read last two floats per vertex (4 floats in each), offset by 8 bytes, send to TexCoord
     glBindVertexArray(0);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -178,12 +180,12 @@ int main() {
         cudaGraphicsUnmapResources(1, &cuda_pbo, nullptr); // returns ownership of memory back to opengl
 
         // rebind buffer and textures and let opengl render
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, PBO);
-        glBindTexture(GL_TEXTURE_2D, tex);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, PBO); // bind buffer to "unpack" data from cpu to gpu
+        glBindTexture(GL_TEXTURE_2D, tex); // bind tex to be a 2d texture
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, W, H, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0); // unbind pbo
 
-        glUseProgram(program);
+        glUseProgram(program); // reuse program
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, tex);
         glBindVertexArray(VAO);
