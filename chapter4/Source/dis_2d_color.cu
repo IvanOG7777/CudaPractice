@@ -44,22 +44,22 @@ __global__ void kernel2d(uchar4 *d_out, int width, int height, float2 pos) {
 const char *vertexShader = R"GLSL(
     #version 330 core
 
-    layout (location = 0) in vec2 aPos;
-    layout (location = 1) in vec2 aTexCoord;
+    layout (location = 0) in vec2 aPos; // send x/y data to aPos
+    layout (location = 1) in vec2 aTexCoord; // send x/y data to aTexCoord
 
-    out vec2 vTexCoord;
+    out vec2 vTexCoord; // send out to fragment
 
      void main () {
-        gl_Position = vec4(aPos, 0.0, 1.0);
-        vTexCoord = aTexCoord;
+        gl_Position = vec4(aPos, 0.0, 1.0); // send data off to fragment
+        vTexCoord = aTexCoord; // send data off to fragment
      }
 )GLSL";
 
 const char *fragmentShader = R"GLSL(
     #version 330 core
 
-    in vec2 vTexCoord;
-    out vec4 FragColor;
+    in vec2 vTexCoord; // take in vTexCoord from shader
+    out vec4 FragColor; // color fragment out
 
     uniform sampler2D uTex;
 
@@ -102,32 +102,15 @@ int main() {
 
     dim3 gridSize(bx,by);
 
-    auto vs = glCreateShader(GL_VERTEX_SHADER);
-    auto fs = glCreateShader(GL_FRAGMENT_SHADER);
-
-    glShaderSource(vs, 1, &vertexShader, nullptr);
-    glCompileShader(vs);
-
-    glShaderSource(fs, 1, &fragmentShader, nullptr);
-    glCompileShader(fs);
-
-    auto program = glCreateProgram();
-    glAttachShader(program, vs);
-    glAttachShader(program, fs);
-    glLinkProgram(program);
-
-    glDeleteShader(vs);
-    glDeleteShader(fs);
-
     GLuint PBO = 0, tex = 0, VAO = 0, VBO = 0;
 
     glGenBuffers(1, &PBO);
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, PBO);
-    glBufferData(GL_PIXEL_UNPACK_BUFFER, W*H*sizeof(uchar4), nullptr, GL_DYNAMIC_DRAW);
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, PBO); // bind buffer to "unpack" data from cpu to gpu
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, W*H*sizeof(uchar4), nullptr, GL_DYNAMIC_DRAW); // note that buffer data will be unpacked. We are sending off W*H*sizeof(uchar4) bytes. No init data and we are dynamically drawing
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0); // unbind buffer
 
-    cudaGraphicsResource *cuda_pbo = nullptr;
-    cudaGraphicsGLRegisterBuffer(&cuda_pbo, PBO, cudaGraphicsRegisterFlagsWriteDiscard);
+    cudaGraphicsResource *cuda_pbo = nullptr; // allows for cuda to opengl gl communication
+    cudaGraphicsGLRegisterBuffer(&cuda_pbo, PBO, cudaGraphicsRegisterFlagsWriteDiscard); // register our local pbo to cuda's pbo, allow cuda to send data as the producer and opengl as the consumer
 
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
@@ -158,13 +141,29 @@ int main() {
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
     glBindVertexArray(0);
 
-    glUseProgram(program);
-    glUniform1i(glGetUniformLocation(program, "uTex"), 0);
-    glUseProgram(0);
-
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
+    auto vs = glCreateShader(GL_VERTEX_SHADER);
+    auto fs = glCreateShader(GL_FRAGMENT_SHADER);
+
+    glShaderSource(vs, 1, &vertexShader, nullptr);
+    glCompileShader(vs);
+
+    glShaderSource(fs, 1, &fragmentShader, nullptr);
+    glCompileShader(fs);
+
+    auto program = glCreateProgram();
+    glAttachShader(program, vs);
+    glAttachShader(program, fs);
+    glLinkProgram(program);
+
+    glDeleteShader(vs);
+    glDeleteShader(fs);
+
+    glUseProgram(program);
+    glUniform1i(glGetUniformLocation(program, "uTex"), 0);
+    glUseProgram(0);
 
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -184,8 +183,6 @@ int main() {
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, W, H, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-        glClear(GL_COLOR_BUFFER_BIT);
-
         glUseProgram(program);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, tex);
@@ -196,6 +193,8 @@ int main() {
         glfwPollEvents();
     }
 
+
+    //clean up unbinding cuda and deleting buffers/programs
     cudaGraphicsUnregisterResource(cuda_pbo);
     glDeleteBuffers(1, &PBO);
     glDeleteBuffers(1, &VBO);
