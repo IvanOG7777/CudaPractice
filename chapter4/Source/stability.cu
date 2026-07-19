@@ -54,7 +54,7 @@ __device__ float2 oscillator(float initPosition, float initVelocity, float dampi
     float currentVelocity = initVelocity;
     float2 stepVals = {currentPosition, currentVelocity};
     float i = 0.0f;
-    while (i <= finalTime) {
+    while (i < finalTime) {
         stepVals = step(currentPosition, currentVelocity, damping, dt);
         currentPosition = stepVals.x;
         currentVelocity = stepVals.y;
@@ -70,10 +70,10 @@ __device__ unsigned char clip (int n) { // used to rbg channel intensity
 }
 
 __global__ void stabilityKernel(uchar4 *d_out, int width, int height) {
-    int col = blockIdx.y * blockDim.y + threadIdx.y;
-    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if (col >= height || row >= width) return;
+    if (col >= width || row >= height) return;
 
     int i = row * width + col;
 
@@ -81,20 +81,52 @@ __global__ void stabilityKernel(uchar4 *d_out, int width, int height) {
 
     float2 pos = oscillator(initState.x, initState.y, DAMPING, DT, FINAL_TIME);
 
-    float dist_f = std::sqrt(pos.x * pos.x - pos.y * pos.y);
-    float dist_r = dist_f / initState.x;
+    float dist_0 = std::sqrt(initState.x * initState.x + initState.y * initState.y);
+    if (dist_0 == 0.0f) dist_0 = 0.01f; // in case of divide by 0 case at center
+
+    float dist_f = std::sqrt(pos.x * pos.x + pos.y * pos.y);
+    float dist_r = dist_f / dist_0;
 
     d_out[i].x = clip(dist_r * 255);
-    d_out[i].x = ((col == width/2) || (row == height/2)) ? 255 : 0;
-    d_out[i].x = clip((1/dist_r) * 255);
-    d_out[i].z = 255;
+    d_out[i].y = ((col == width/2) || (row == height/2)) ? 255 : 0;
+    d_out[i].z = clip((1/dist_r) * 255);
+    d_out[i].w = 255;
 }
 
 int main() {
 
-    float widthX = (1920.0f - 0.0f) / (1920 - 0);
+    if (!glfwInit()) {
+        std::cerr << "GLFW INIT ERROR \n";
+        return -1;
+    }
 
-    std:: cout << widthX << std:: endl;
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    GLFWwindow *window = glfwCreateWindow(W, H, "CUDA 2D Color", nullptr, nullptr);
+
+    if (window == nullptr) {
+        std::cerr << "WINDOW IS NULLPTR" << std::endl;
+        glfwTerminate();
+        return -1;
+    }
+    glfwMakeContextCurrent(window);
+    if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
+        std::cerr << "GLAD INIT ERROR\n";
+        return -1;
+    }
+
+    // device pointer
+    uchar4 *device_out_color = nullptr;
+
+
+    dim3 blockSize(TX, TY);
+
+    auto bx = (W + blockSize.x - 1) / blockSize.x;
+    auto by = (H + blockSize.y - 1) / blockSize.y;
+
+    dim3 gridSize(bx, by);
 
     return 0;
 }
