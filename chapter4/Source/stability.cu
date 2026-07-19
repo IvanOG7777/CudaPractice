@@ -20,7 +20,7 @@ constexpr float FINAL_TIME = 10.0f;
 
 constexpr float DAMPING = 0.1f;
 
-__device__ float2 pixelToState(float x, float y, int width, int height, float length) {
+__device__ float2 pixelToState(int x, int y, int width, int height, float length) {
     float2 position{};
 
     float normalX = (static_cast<float>(x) - 0.0f) / (static_cast<float>(width) - 1.0f);
@@ -65,19 +65,29 @@ __device__ float2 oscillator(float initPosition, float initVelocity, float dampi
     return stepVals;
 }
 
-__global__ void stabilityKernel() {
-    int row = blockIdx.x * blockDim.x + threadIdx.x;
-    int col = blockIdx.y * blockDim.y + threadIdx.y;
-
-    if (col >= H || row >= W) return;
-
-    int i = row * W + col;
-
-
-}
-
 __device__ unsigned char clip (int n) { // used to rbg channel intensity
     return n > 255 ? 255 : (n < 0 ? 0 : n); // nested ternery operator return 255, 0 or n
+}
+
+__global__ void stabilityKernel(uchar4 *d_out, int width, int height) {
+    int col = blockIdx.y * blockDim.y + threadIdx.y;
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (col >= height || row >= width) return;
+
+    int i = row * width + col;
+
+    float2 initState = pixelToState(col,row, width, height, LENGTH);
+
+    float2 pos = oscillator(initState.x, initState.y, DAMPING, DT, FINAL_TIME);
+
+    float dist_f = std::sqrt(pos.x * pos.x - pos.y * pos.y);
+    float dist_r = dist_f / initState.x;
+
+    d_out[i].x = clip(dist_r * 255);
+    d_out[i].x = ((col == width/2) || (row == height/2)) ? 255 : 0;
+    d_out[i].x = clip((1/dist_r) * 255);
+    d_out[i].z = 255;
 }
 
 int main() {
