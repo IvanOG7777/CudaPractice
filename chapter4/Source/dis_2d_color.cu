@@ -31,7 +31,7 @@ __global__ void kernel2d(uchar4 *d_out, int width, int height, float2 pos) {
     // calculate current distance from origin point
     float distance = std::sqrtf((col - pos.x) * (col - pos.x) + (row - pos.y) * (row - pos.y));
 
-    const auto intensity = clip(static_cast<int>(255 - distance)); // clip its brightness intensity (clip only called on device)
+    const unsigned char intensity = clip(static_cast<int>(255 - distance)); // clip its brightness intensity (clip only called on device)
 
     // pass intensity on red and green channels only (makes yellow)
     d_out[i].x = intensity;

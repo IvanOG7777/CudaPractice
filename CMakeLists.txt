@@ -59,6 +59,15 @@ target_link_libraries(dist_2d_color PRIVATE
         opengl32
 )
 
+target_include_directories(stability PRIVATE
+        ${CMAKE_SOURCE_DIR}/chapter4/Libraries/include
+)
+
+target_link_libraries(stability PRIVATE
+        ${CMAKE_SOURCE_DIR}/chapter4/Libraries/lib/glfw3.lib
+        opengl32
+)
+
 
 set_target_properties(
         dist_v1
