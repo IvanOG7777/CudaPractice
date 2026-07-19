@@ -128,5 +128,12 @@ int main() {
 
     dim3 gridSize(bx, by);
 
+    GLuint VAO = 0, VBO = 0, PBO = 0, tex = 0;
+
+    glGenBuffers(1, &PBO);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, PBO); // bind buffer to "unpack" data from cpu to gpu
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, W*H*sizeof(uchar4), nullptr, GL_DYNAMIC_DRAW); // note that buffer data will be unpacked. We are sending off W*H*sizeof(uchar4) bytes. No init data and we are dynamically drawing
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0); // unbind buffer
+
     return 0;
 }
