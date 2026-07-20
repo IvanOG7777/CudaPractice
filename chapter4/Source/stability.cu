@@ -81,11 +81,17 @@ __global__ void stabilityKernel(uchar4 *d_out, int width, int height, float2 pos
 
     int i = row * width + col;
 
+    float normalPosX = (position.x - 0.0f) / (static_cast<float>(width) - 1.0f);
+    float normalPosY = (position.y - 0.0f) / (static_cast<float>(height) - 1.0f);
+
+    float mappedPosX = -LENGTH + normalPosX * (LENGTH - (-LENGTH));
+    float mappedPosY = -LENGTH + normalPosY * (LENGTH - (-LENGTH));
+
     float2 initState = pixelToState(col,row, width, height, LENGTH);
 
     float2 pos = oscillator(initState.x, initState.y, DAMPING, DT, FINAL_TIME);
 
-    float dist_0 = std::sqrt(initState.x * initState.x + initState.y * initState.y);
+    float dist_0 = std::sqrt((mappedPosX * mappedPosX) + (mappedPosY * mappedPosY));
     if (dist_0 == 0.0f) dist_0 = 0.01f; // in case of divide by 0 case at center
 
     float dist_f = std::sqrt(pos.x * pos.x + pos.y * pos.y);
@@ -93,8 +99,8 @@ __global__ void stabilityKernel(uchar4 *d_out, int width, int height, float2 pos
     if (dist_r == 0.0f) dist_r = 0.01f;
 
     d_out[i].x = clip(dist_f * 255);
-    d_out[i].y = ((col == width/2) || (row == height/2)) ? 255 : 0; // does the cross across screen
-    d_out[i].z = clip((1/dist_f) * 255);
+    d_out[i].y = ((col == width/2) || (row == height/2)) ? 255 : 0; // does the brightness of the cross across screen
+    d_out[i].z = clip((1/dist_r) * 255);
     d_out[i].w = 255;
 }
 
@@ -132,8 +138,8 @@ struct SceneState {
 void cursorPositionCallback(GLFWwindow *window, double posX, double posY) {
     auto *state = static_cast<SceneState *>(glfwGetWindowUserPointer(window));
 
-    state->cursorPositon->x += static_cast<float>(posX);
-    state->cursorPositon->y += static_cast<float>(posY);
+    state->cursorPositon->x = static_cast<float>(posX);
+    state->cursorPositon->y = static_cast<float>(posY);
 }
 
 int main() {
@@ -233,6 +239,13 @@ int main() {
     glUniform1i(glGetUniformLocation(program, "uTex"), 0);
     glUseProgram(0);
 
+    SceneState state{};
+    float2 cursorPosition = {W/2.0f, H/2.0f};
+    state.cursorPositon = &cursorPosition;
+
+    glfwSetWindowUserPointer(window, &state);
+    glfwSetCursorPosCallback(window, cursorPositionCallback);
+
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     while (!glfwWindowShouldClose(window)) {
 
@@ -240,7 +253,7 @@ int main() {
         cudaGraphicsMapResources(1, &cudaPBO, nullptr);
         cudaGraphicsResourceGetMappedPointer((void**)&device_out_color, &numBytes, cudaPBO);
 
-        stabilityKernel<<<gridSize, blockSize>>>(device_out_color, W, H);
+        stabilityKernel<<<gridSize, blockSize>>>(device_out_color, W, H, cursorPosition);
 
         cudaGraphicsUnmapResources(1, &cudaPBO, nullptr);
 
