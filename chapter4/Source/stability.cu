@@ -18,13 +18,13 @@ constexpr int H = 1080;
 
 constexpr float LENGTH = 5.0f;
 
-constexpr float DT = 0.05f;
+constexpr float DT = 0.005f;
 
 constexpr float FINAL_TIME = 10.0f;
 
 constexpr float DAMPING = 0.1f;
 
-__device__ float2 pixelToState(int x, int y, int width, int height, float length) {
+__device__ float2 pixelToState(int x, int y, int width, int height, float length, float2 cursorPosition) {
     float2 position{};
 
     float normalX = (static_cast<float>(x) - 0.0f) / (static_cast<float>(width) - 1.0f);
@@ -33,6 +33,10 @@ __device__ float2 pixelToState(int x, int y, int width, int height, float length
     // maps x and y to be between -length and length
     float mappedX = -length + normalX * (length - (-length));
     float mappedY = -length + normalY * (length - (-length));
+
+    // move osculated position with mouse
+    // mappedX -= cursorPosition.x;
+    // mappedY -= cursorPosition.y;
 
     position.x = mappedX;
     position.y = mappedY;
@@ -44,7 +48,9 @@ __device__ float2 step(float position, float velocity, float damping, float dt) 
     float2 newValues{};
 
     float newPosition = position + dt * velocity;
-    float newVelocity = velocity + dt * (-position - (2 * damping * velocity));
+    // float newVelocity = velocity + dt * (-position - (2 * damping * velocity));
+
+    float newVelocity = velocity + dt * (damping * (1 - (position * position)) * velocity - position);
 
     newValues.x = newPosition;
     newValues.y = newVelocity;
@@ -87,18 +93,16 @@ __global__ void stabilityKernel(uchar4 *d_out, int width, int height, float2 pos
     float mappedPosX = -LENGTH + normalPosX * (LENGTH - (-LENGTH));
     float mappedPosY = -LENGTH + normalPosY * (LENGTH - (-LENGTH));
 
-    float2 initState = pixelToState(col,row, width, height, LENGTH);
+    float2 initState = pixelToState(col,row, width, height, LENGTH, {mappedPosX, mappedPosY});
 
     float2 pos = oscillator(initState.x, initState.y, DAMPING, DT, FINAL_TIME);
 
-    float dist_0 = std::sqrt((mappedPosX * mappedPosX) + (mappedPosY * mappedPosY));
-    if (dist_0 == 0.0f) dist_0 = 0.01f; // in case of divide by 0 case at center
+    float dist_0 = std::sqrt((initState.x * initState.x) + (initState.y * initState.y));
 
     float dist_f = std::sqrt(pos.x * pos.x + pos.y * pos.y);
     float dist_r = dist_f / dist_0;
-    if (dist_r == 0.0f) dist_r = 0.01f;
 
-    d_out[i].x = clip(dist_f * 255);
+    d_out[i].x = clip(dist_r * 255);
     d_out[i].y = ((col == width/2) || (row == height/2)) ? 255 : 0; // does the brightness of the cross across screen
     d_out[i].z = clip((1/dist_r) * 255);
     d_out[i].w = 255;
