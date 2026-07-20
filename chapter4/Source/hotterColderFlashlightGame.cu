@@ -46,6 +46,7 @@ float2 pickPixel(int width, int height, float2 position) {
 struct SceneState {
     float2 *currentMousePosition;
     float2 *playerAMousePosition;
+    float2 *chosenPixelCoordinates;
     bool pixelPicked;
 };
 
@@ -54,10 +55,11 @@ struct SceneState {
 
 void cursorButtonCallback(GLFWwindow *window, int button, int action, int mods) {
     auto *state = static_cast<SceneState *>(glfwGetWindowUserPointer(window));
-    auto *position = state->currentMousePosition;
+    auto *currentPosition = state->currentMousePosition;
+    auto *playerAPosition = state->playerAMousePosition;
 
     if (state->pixelPicked == false && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-        pickPixel(W, H, *position);
+        *state->chosenPixelCoordinates = pickPixel(W, H, *playerAPosition);
         state->pixelPicked = true;
     }
 
