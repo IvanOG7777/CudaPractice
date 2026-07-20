@@ -23,7 +23,7 @@ constexpr float DT = 0.005f;
 constexpr float FINAL_TIME = 10.0f;
 
 // or system from text book
-constexpr float DAMPING = 1.0f;
+constexpr float DAMPING = 2.0f;
 
  __device__ float2 pixelToState(int x, int y, int width, int height, float length) {
     float2 position{};
@@ -52,7 +52,7 @@ __device__ float2 step(float position, float velocity, float damping, float dt) 
     // float newVelocity = velocity + dt * (-position - (2 * damping * velocity));
 
     // van der pol equation. constant 1 is the P variable from the equation
-    float newVelocity = velocity + dt * (damping * (2 - (position * position)) * velocity - position);
+    float newVelocity = velocity + dt * (damping * (0.2f - (position * position)) * velocity - position);
 
     newValues.x = newPosition;
     newValues.y = newVelocity;

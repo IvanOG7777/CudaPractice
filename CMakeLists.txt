@@ -50,6 +50,11 @@ add_executable(stability
         chapter4/Source/glad.c
 )
 
+add_executable(hotterColderFlashlightGame
+        chapter4/Source/hotterColderFlashlightGame.cu
+        chapter4/Source/glad.c
+)
+
 target_include_directories(dist_2d_color PRIVATE
         ${CMAKE_SOURCE_DIR}/chapter4/Libraries/include
 )
@@ -68,13 +73,11 @@ target_link_libraries(stability PRIVATE
         opengl32
 )
 
+target_include_directories(hotterColderFlashlightGame PRIVATE
+        ${CMAKE_SOURCE_DIR}/chapter4/Libraries/include
+)
 
-set_target_properties(
-        dist_v1
-        dist_v2
-        dist_v2_unified
-        changedNumOfElements
-        distArray
-        PROPERTIES
-        CUDA_SEPARABLE_COMPILATION ON
+target_link_libraries(hotterColderFlashlightGame PRIVATE
+        ${CMAKE_SOURCE_DIR}/chapter4/Libraries/lib/glfw3.lib
+        opengl32
 )
