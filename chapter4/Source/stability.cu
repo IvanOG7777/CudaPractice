@@ -22,9 +22,10 @@ constexpr float DT = 0.005f;
 
 constexpr float FINAL_TIME = 10.0f;
 
-constexpr float DAMPING = 0.1f;
+// or system from text book
+constexpr float DAMPING = 1.0f;
 
-__device__ float2 pixelToState(int x, int y, int width, int height, float length, float2 cursorPosition) {
+ __device__ float2 pixelToState(int x, int y, int width, int height, float length) {
     float2 position{};
 
     float normalX = (static_cast<float>(x) - 0.0f) / (static_cast<float>(width) - 1.0f);
@@ -50,7 +51,8 @@ __device__ float2 step(float position, float velocity, float damping, float dt) 
     float newPosition = position + dt * velocity;
     // float newVelocity = velocity + dt * (-position - (2 * damping * velocity));
 
-    float newVelocity = velocity + dt * (damping * (1 - (position * position)) * velocity - position);
+    // van der pol equation. constant 1 is the P variable from the equation
+    float newVelocity = velocity + dt * (damping * (2 - (position * position)) * velocity - position);
 
     newValues.x = newPosition;
     newValues.y = newVelocity;
@@ -93,7 +95,7 @@ __global__ void stabilityKernel(uchar4 *d_out, int width, int height, float2 pos
     float mappedPosX = -LENGTH + normalPosX * (LENGTH - (-LENGTH));
     float mappedPosY = -LENGTH + normalPosY * (LENGTH - (-LENGTH));
 
-    float2 initState = pixelToState(col,row, width, height, LENGTH, {mappedPosX, mappedPosY});
+    float2 initState = pixelToState(col,row, width, height, LENGTH);
 
     float2 pos = oscillator(initState.x, initState.y, DAMPING, DT, FINAL_TIME);
 
