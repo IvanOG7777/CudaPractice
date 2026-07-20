@@ -36,22 +36,43 @@ __global__ void kernelFlashLight(uchar4 *d_out, int width, int height) {
     d_out[i].w = 255;
 }
 
+float2 pickPixel(int width, int height, float2 position) {
+    float normalX = (position.x - 0.0f) / (static_cast<float>(width) - 1.0f);
+    float normalY = (position.y - 0.0f) / (static_cast<float>(height) - 1.0f);
+
+    return {normalX, normalY};
+}
+
 struct SceneState {
-    float2 *mousePosition;
+    float2 *currentMousePosition;
+    float2 *playerAMousePosition;
+    bool pixelPicked;
 };
 
 // I would need a bool for setPixel user a picks storing the fact that the specific pixel has been chosen
-// I think I would need to pass this this the kernel as well or at least the bool for the specific pixel
+// I think I would need to pass this the kernel as well or at least the bool for the specific pixel
 
 void cursorButtonCallback(GLFWwindow *window, int button, int action, int mods) {
+    auto *state = static_cast<SceneState *>(glfwGetWindowUserPointer(window));
+    auto *position = state->currentMousePosition;
+
+    if (state->pixelPicked == false && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+        pickPixel(W, H, *position);
+        state->pixelPicked = true;
+    }
 
 }
 
 void cursorPositionCallback(GLFWwindow *window, double posX, double posY) {
     auto *state = static_cast<SceneState *>(glfwGetWindowUserPointer(window));
 
-    state->mousePosition->x = static_cast<float>(posX);
-    state->mousePosition->y = static_cast<float>(posY);
+    if (state->pixelPicked == false) {
+        state->playerAMousePosition->x = static_cast<float>(posX);
+        state->playerAMousePosition->y = static_cast<float>(posY);
+    } else {
+        state->currentMousePosition->x = static_cast<float>(posX);
+        state->currentMousePosition->y = static_cast<float>(posY);
+    }
 }
 
 int main() {
