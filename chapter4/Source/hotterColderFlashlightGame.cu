@@ -2,11 +2,12 @@
 // Created by elder on 7/20/2026.
 //
 
-#include <cuda_gl_interop.h>
 #include <iostream>
 
 #include <glad/glad.h>
 #include "GLFW/glfw3.h"
+
+#include <cuda_gl_interop.h>
 
 constexpr int TX = 32, TY = 32;
 constexpr int W = 1920, H = 1080;
@@ -16,11 +17,11 @@ __device__ unsigned char clip (int n) {
 }
 
 __device__ float distance(int x, int y) {
-    return std::sqrtf(static_cast<float>(x * x) - static_cast<float>(y *y));
+    return std::sqrtf(static_cast<float>(x * x) + static_cast<float>(y *y));
 }
 
 // position is normalized when passed
-__global__ void kernelFlashLight(uchar4 *d_out, int width, int height, float2 pixelPosition) {
+__global__ void kernelFlashLight(uchar4 *d_out, int width, int height, float2 cursorPosition, float2 pixelPosition) {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     int row = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -28,7 +29,10 @@ __global__ void kernelFlashLight(uchar4 *d_out, int width, int height, float2 pi
 
     int i = row * width + col;
 
-    float currentDistance = distance(static_cast<int>(col * pixelPosition.x), static_cast<int>(row * pixelPosition.y);
+    float distanceToPixelX = cursorPosition.x - pixelPosition.x;
+    float distanceToPixelY = cursorPosition.y - pixelPosition.y;
+
+    float currentDistance = distance((col * cursorPosition.x), (row * cursorPosition.y));
 
     unsigned char intensity = clip (static_cast<int>(255 - currentDistance));
 
@@ -38,19 +42,18 @@ __global__ void kernelFlashLight(uchar4 *d_out, int width, int height, float2 pi
     d_out[i].w = 255;
 }
 
-// normalize screen coordinates between -1 <-> in x/y axis
-float2 pickPixel(int width, int height, float2 position) {
-    float normalX = (position.x - 0.0f) / (static_cast<float>(width) - 1.0f);
-    float normalY = (position.y - 0.0f) / (static_cast<float>(height) - 1.0f);
+float2 pickPixel(float2 position) {
+    float normalX = position.x;
+    float normalY = position.y;
 
     return {normalX, normalY};
 }
 
 struct SceneState {
-    float2 *currentMousePosition;
+    int *pixelPicked;
+    float2 *playerBMousePosition;
     float2 *playerAMousePosition;
     float2 *chosenPixelCoordinates;
-    bool pixelPicked;
 };
 
 // Allows player A to pick pixel, then sets flag to true
@@ -58,9 +61,11 @@ void cursorButtonCallback(GLFWwindow *window, int button, int action, int mods) 
     auto *state = static_cast<SceneState *>(glfwGetWindowUserPointer(window));
     auto *playerAPosition = state->playerAMousePosition;
 
-    if (state->pixelPicked == false && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-        *state->chosenPixelCoordinates = pickPixel(W, H, *playerAPosition);
-        state->pixelPicked = true;
+    if (*state->pixelPicked == 0 && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+        *state->chosenPixelCoordinates = pickPixel(*playerAPosition);
+        *state->pixelPicked = 1;
+        std:: cout << "Player A picked a pixel\n";
+        printf("Chosen pixel coordinates is: (%f, %f)", state->chosenPixelCoordinates->x, state->chosenPixelCoordinates->y);
     }
 
 }
@@ -69,12 +74,14 @@ void cursorButtonCallback(GLFWwindow *window, int button, int action, int mods) 
 void cursorPositionCallback(GLFWwindow *window, double posX, double posY) {
     auto *state = static_cast<SceneState *>(glfwGetWindowUserPointer(window));
 
-    if (state->pixelPicked == false) {
+    if (*state->pixelPicked == 0) {
         state->playerAMousePosition->x = static_cast<float>(posX);
         state->playerAMousePosition->y = static_cast<float>(posY);
+        std:: cout << "Player A moving mouse\n";
     } else {
-        state->currentMousePosition->x = static_cast<float>(posX);
-        state->currentMousePosition->y = static_cast<float>(posY);
+        state->playerBMousePosition->x = static_cast<float>(posX);
+        state->playerBMousePosition->y = static_cast<float>(posY);
+        std:: cout << "Player B moving mouse\n";
     }
 }
 
@@ -119,6 +126,7 @@ int main() {
     GLFWwindow *window  = glfwCreateWindow(W, H, "Hotter Colder Game", nullptr, nullptr);
     if (window == nullptr) {
         std:: cerr << "WINDOW IS NULLPTR\n";
+        glfwTerminate();
         return -1;
     }
 
@@ -169,13 +177,13 @@ int main() {
     glGenBuffers(1, &VBO);
 
     glBindVertexArray(VAO);
-    glBindBuffer(GL_VERTEX_ARRAY, VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(coordinates), coordinates,GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *) (2 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -204,12 +212,19 @@ int main() {
     SceneState state{};
     float2 playerACursor = {W/2.0f, H/2.0f};
     float2 playerBCursor = {W/2.0f, H/2.0f};
-    bool chosenPixel = false;
+    float2 chosenPixelCoordinates = {};
+    int chosenPixel = 0;
+
+    state.chosenPixelCoordinates = &chosenPixelCoordinates;
+    state.playerAMousePosition = &playerACursor;
+    state.playerBMousePosition = &playerBCursor;
+    state.pixelPicked = &chosenPixel;
 
     glfwSetWindowUserPointer(window, &state);
     glfwSetCursorPosCallback(window, cursorPositionCallback);
     glfwSetMouseButtonCallback(window, cursorButtonCallback);
 
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     while (!glfwWindowShouldClose(window)) {
 
         size_t numBytes = 0;
@@ -217,8 +232,28 @@ int main() {
         cudaGraphicsResourceGetMappedPointer((void**)&deviceColorOut, &numBytes, cudaPBO); // get device pointer to map opengl pbo memory to it
 
 
+        std:: cout << "Still waiting for player a to pick pixel" << std:: endl;
+        while (*state.pixelPicked == 1) {
+            std:: cout << "Are we entering this statemtn? " << std:: endl;
+            kernelFlashLight<<<gridSize, blockSize>>>(deviceColorOut, W, H, playerBCursor, chosenPixelCoordinates);
 
-        kernelFlashLight<<<>>>()
+            // rebind buffer and textures and let opengl render
+            glBindBuffer(GL_PIXEL_UNPACK_BUFFER, PBO); // bind buffer to "unpack" data from cpu to gpu
+            glBindTexture(GL_TEXTURE_2D, tex); // bind tex to be a 2d texture
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, W, H, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+            glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0); // unbind pbo
+
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            glUseProgram(program); // reuse program
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, tex);
+            glBindVertexArray(VAO);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        }
+        glfwSwapBuffers(window);
+        glfwPollEvents();
     }
 
     return 0;
