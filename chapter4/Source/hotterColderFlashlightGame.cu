@@ -16,10 +16,6 @@ __device__ unsigned char clip (int n) {
     return n > 255 ? 255 : (n < 0 ? 0 : n);
 }
 
-__device__ float distance(int x, int y) {
-    return std::sqrtf(static_cast<float>(x * x) + static_cast<float>(y *y));
-}
-
 // position is normalized when passed
 __global__ void kernelFlashLight(uchar4 *d_out, int width, int height, float2 cursorPosition, float2 pixelPosition) {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
@@ -32,9 +28,12 @@ __global__ void kernelFlashLight(uchar4 *d_out, int width, int height, float2 cu
     float distanceToPixelX = cursorPosition.x - pixelPosition.x;
     float distanceToPixelY = cursorPosition.y - pixelPosition.y;
 
-    float currentDistance = distance((col * cursorPosition.x), (row * cursorPosition.y));
+    float currentDistance = std::sqrtf((col - cursorPosition.x) * (col - cursorPosition.x) + (row - cursorPosition.y) * (row - cursorPosition.y));
 
-    unsigned char intensity = clip (static_cast<int>(255 - currentDistance));
+    float disX = std::sqrtf((currentDistance - distanceToPixelX) * (currentDistance - distanceToPixelX));
+    float disY = std::sqrtf((currentDistance - distanceToPixelY) * (currentDistance - distanceToPixelY));
+
+    unsigned char intensity = clip (static_cast<int>(255 - (disX + disY)));
 
     d_out[i].x = intensity;
     d_out[i].y = 0;
@@ -86,29 +85,29 @@ void cursorPositionCallback(GLFWwindow *window, double posX, double posY) {
 }
 
 const char *vertexShader = R"GLSL(
-    version #330 core
+    #version 330 core
 
-    layout (location = 0) in vec2 aPos;
-    layout (location = 1) in vec2 aTexCoord;
+    layout (location = 0) in vec2 aPos; // send x/y data to aPos
+    layout (location = 1) in vec2 aTexCoord; // send x/y data to aTexCoord
 
-    out vec2 uTexCoord;
+    out vec2 vTexCoord; // send out to fragment
 
-    void main() {
-        gl_Position = vec4(aPos, 0.0, 1.0);
-        uTexCoord = aTexCoord;
-    }
+     void main () {
+        gl_Position = vec4(aPos, 0.0, 1.0); // send data off to fragment
+        vTexCoord = aTexCoord; // send data off to fragment
+     }
 )GLSL";
 
 const char *fragmentShader = R"GLSL(
-    version #330 core
+    #version 330 core
 
-    in vec2 uTexCoord;
-    out vec4 FragColor;
+    in vec2 vTexCoord; // take in vTexCoord from shader
+    out vec4 FragColor; // color fragment out
 
     uniform sampler2D uTex;
 
     void main() {
-        FragColor = texture(uTex, uTexCoord);
+        FragColor = texture(uTex, vTexCoord);
     }
 )GLSL";
 
@@ -233,7 +232,7 @@ int main() {
 
 
         std:: cout << "Still waiting for player a to pick pixel" << std:: endl;
-        while (*state.pixelPicked == 1) {
+        if (*state.pixelPicked == 1) {
             std:: cout << "Are we entering this statemtn? " << std:: endl;
             kernelFlashLight<<<gridSize, blockSize>>>(deviceColorOut, W, H, playerBCursor, chosenPixelCoordinates);
 
