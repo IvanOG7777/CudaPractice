@@ -25,19 +25,31 @@ __global__ void kernelFlashLight(uchar4 *d_out, int width, int height, float2 cu
 
     int i = row * width + col;
 
+    float threadXToCursorX = col - cursorPosition.x;
+    float threadYToCursorY = row - cursorPosition.y;
+    float currentDistance = std::sqrtf(threadXToCursorX * threadXToCursorX + threadYToCursorY * threadYToCursorY); // controls flashlight fall off
+
+    // This should control intensity of colors when mouse is close to pixel
+    // The distance from player cursor to picked target
     float distanceToPixelX = cursorPosition.x - pixelPosition.x;
     float distanceToPixelY = cursorPosition.y - pixelPosition.y;
+    float targetDistance = std::sqrtf(distanceToPixelX * distanceToPixelX + distanceToPixelY * distanceToPixelY);
 
-    float currentDistance = std::sqrtf((col - cursorPosition.x) * (col - cursorPosition.x) + (row - cursorPosition.y) * (row - cursorPosition.y));
+    float maxDistance = std:: sqrtf(W*W + H*H); // get max diagonal distance
 
-    float disX = std::sqrtf((currentDistance - distanceToPixelX) * (currentDistance - distanceToPixelX));
-    float disY = std::sqrtf((currentDistance - distanceToPixelY) * (currentDistance - distanceToPixelY));
+    float normalizedTargetDistance = targetDistance / maxDistance; // normalize between 0 and 1
 
-    unsigned char intensity = clip (static_cast<int>(255 - (disX + disY)));
+    float heat = 1 - normalizedTargetDistance; // normalized heat
 
-    d_out[i].x = intensity;
+    unsigned char intensityRed = clip(static_cast<int>(255 * heat));
+    unsigned char intensityBlue = clip(static_cast<int>(255 * (1 - heat)));
+
+    unsigned char finalRed = clip(intensityRed - currentDistance);
+    unsigned char finalBlue = clip(intensityBlue - currentDistance);
+
+    d_out[i].x = finalRed;
     d_out[i].y = 0;
-    d_out[i].z = intensity;
+    d_out[i].z = finalBlue;
     d_out[i].w = 255;
 }
 
